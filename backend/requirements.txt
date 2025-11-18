@@ -1,0 +1,23 @@
+fastapi[all]
+uvicorn[standard]
+gunicorn
+python-dotenv
+pydantic-settings
+
+# Baza SQL i Migracje
+sqlalchemy
+alembic
+
+# Bezpieczeństwo i Hasła (FIX: Pinujemy wersję bcrypt na 4.0.1, żeby działała z passlib)
+passlib==1.7.4
+bcrypt==4.0.1
+python-jose[cryptography]
+
+# Baza wektorowa i AI
+chromadb
+google-generativeai
+
+# Narzędzia
+httpx
+python-multipart
+email-validator

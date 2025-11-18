@@ -1,0 +1,19 @@
+services:
+  backend:
+    build: 
+      context: ./backend
+    container_name: aikcal-backend-v3
+    # Nadpisujemy komendę startową na tryb developerski (z --reload)
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      # Montujemy Twój kod lokalny do kontenera, żeby zmiany były widoczne od razu
+      - ./backend/app:/app/app
+      - ./backend/scripts:/app/scripts
+      - ./frontend:/app/frontend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  # Tu w przyszłości dojdzie frontend i baza danych (np. Qdrant/Postgres)
