@@ -18,6 +18,7 @@ from app.models.enums import (
 class Token(BaseModel):
     access_token: str
     token_type: str
+    user_name: Optional[str] = None # Dodano dla wygody
 
 class TokenData(BaseModel):
     email: Optional[str] = None
@@ -27,7 +28,7 @@ class TokenData(BaseModel):
 class ProductBase(BaseModel):
     name: str
     aliases: Optional[List[str]] = []
-    nutrients: Dict[str, float] # Przechowuje kalorie, białko, tłuszcz, węglowodany na 100g
+    nutrients: Dict[str, float] 
     state: ProductState
 
 class ProductCreate(ProductBase):
@@ -46,7 +47,7 @@ class DishIngredientCreate(DishIngredientBase):
     pass
 
 class DishIngredient(DishIngredientBase):
-    product: Product # Zagnieżdżony obiekt produktu
+    product: Product 
     class Config:
         from_attributes = True
 
@@ -92,9 +93,39 @@ class Conversation(ConversationInfo):
 
 # --- ZAKTUALIZOWANE SCHEMATY UŻYTKOWNIKA ---
 
+# --- DODANO BRAKUJĄCĄ KLASĘ USER BASE ---
+class UserBase(BaseModel):
+    email: EmailStr
+    name: Optional[str] = None
+    
+    # Profilowe
+    gender: Optional[Gender] = None
+    date_of_birth: Optional[date] = None
+    height: Optional[float] = None
+    # Waga nie jest tu potrzebna, bo jest @property
+    
+    # Cele
+    target_weight: Optional[float] = None
+    weekly_goal_kg: Optional[float] = 0.0
+    activity_level: Optional[ActivityLevel] = ActivityLevel.SEDENTARY
+    diet_style: Optional[DietStyle] = DietStyle.BALANCED
+    
+    # Makro
+    calorie_goal: Optional[int] = 2000
+    protein_goal: Optional[int] = 100
+    fat_goal: Optional[int] = 70
+    carb_goal: Optional[int] = 250
+    water_goal: Optional[int] = 2500
+    
+    add_workout_calories_to_goal: Optional[bool] = False
+    is_social_profile_active: Optional[bool] = True
+    
+    class Config:
+        from_attributes = True
+
 class UserCreate(BaseModel):
     email: EmailStr
-    password: Optional[str] = None # Hasło opcjonalne dla logowania przez Google
+    password: Optional[str] = None 
 
 class UserPreferences(BaseModel):
     proteins: List[str]
@@ -106,7 +137,7 @@ class UserUpdate(BaseModel):
     gender: Optional[Gender] = None
     date_of_birth: Optional[date] = None
     height: Optional[float] = None
-    weight: Optional[float] = None
+    weight: Optional[float] = None # Tu waga jest potrzebna do update'u
     target_weight: Optional[float] = None
     weekly_goal_kg: Optional[float] = None
     activity_level: Optional[ActivityLevel] = None
@@ -123,14 +154,13 @@ class UserUpdate(BaseModel):
     last_weekly_analysis: Optional[str] = None
     last_analysis_generated_at: Optional[datetime] = None
 
-class User(UserUpdate):
+class User(UserBase):
     id: int
-    email: EmailStr
     is_verified: bool
-    preferences: UserPreferences
+    preferences: Optional[UserPreferences] = None
     diet_plan_requests: int
     last_request_date: date
-    weight: Optional[float] = None
+    weight: Optional[float] = None # Tu waga jest potrzebna do odczytu
     subscription_status: SubscriptionStatus
     subscription_expires_at: Optional[datetime] = None
     goal_achievement_date: Optional[str] = None
@@ -139,11 +169,11 @@ class User(UserUpdate):
         from_attributes = True
         use_enum_values = True
 
-# Dodano UserResponse dla kompatybilności z wymaganiami nowej architektury
+# UserResponse dziedziczy po User, żeby mieć wszystkie pola + wagę
 class UserResponse(User):
     pass
 
-# --- ISTNIEJĄCE SCHEMATY (zaktualizowane do v2) ---
+# --- ISTNIEJĄCE SCHEMATY ---
 
 class MealEntryBase(BaseModel):
     product_name: str
@@ -151,6 +181,7 @@ class MealEntryBase(BaseModel):
     protein: float
     fat: float
     carbs: float
+    weight: float # Dodane, bo jest używane w MealResponse
 
 class MealEntryCreate(MealEntryBase):
     amount: float
@@ -171,6 +202,10 @@ class MealEntry(MealEntryBase):
     class Config:
         from_attributes = True
 
+# Uproszczony alias dla Response
+class MealEntryResponse(MealEntry):
+    pass
+
 class MealBase(BaseModel):
     name: str
     category: MealCategory
@@ -185,7 +220,10 @@ class Meal(MealBase):
     entries: List[MealEntry] = []
     class Config:
         from_attributes = True
-        
+
+class MealResponse(Meal):
+    pass
+
 class Challenge(BaseModel):
     id: int
     title: str
@@ -210,7 +248,7 @@ class WaterEntryBase(BaseModel):
 
 class WaterEntryCreate(WaterEntryBase):
     date: date
-    time: time_class
+    time: Optional[time_class] = None
 
 class WaterEntry(WaterEntryBase):
     id: int
@@ -225,12 +263,17 @@ class WorkoutBase(BaseModel):
 
 class WorkoutCreate(WorkoutBase):
     date: date
+    text: Optional[str] = None
+    manual_calories: Optional[int] = None
 
 class Workout(WorkoutBase):
     id: int
     date: date
     class Config:
         from_attributes = True
+
+class WorkoutResponse(Workout):
+    pass
         
 class AnalysisResponse(BaseModel):
     aggregated_meal: Dict[str, Any]
@@ -265,10 +308,11 @@ class GoalSuggestionRequest(BaseModel):
     date_of_birth: date
     height: float
     weight: float
-    activity_level: ActivityLevel
+    target_weight: float
     weekly_goal_kg: float
+    activity_level: ActivityLevel
     diet_style: DietStyle
-    
+
 class DeconstructedComponent(BaseModel):
     name: str
     quantity_grams: int
@@ -348,7 +392,7 @@ class DailySummary(BaseModel):
 class AnalysisRequest(BaseModel):
     text: Optional[str] = None
     image_base64: Optional[str] = None
-    meal_category: MealCategory
+    meal_category: Optional[str] = "Inne" # Zmieniono na string, żeby uniknąć problemów z walidacją enuma
 
     @validator('image_base64', always=True)
     def check_text_or_image(cls, v, values):
@@ -386,3 +430,45 @@ class PasswordResetRequest(BaseModel):
 class PasswordResetConfirm(BaseModel):
     token: str
     new_password: str
+
+class DaySummary(BaseModel):
+    date: date
+    
+    # To co zjadłeś (policzone z MealEntries)
+    calories_consumed: float = 0.0
+    protein_consumed: float = 0.0
+    fat_consumed: float = 0.0
+    carbs_consumed: float = 0.0
+    water_consumed: int = 0
+    
+    # Cele użytkownika (Pobierane z profilu User)
+    calorie_goal: int = 2000
+    protein_goal: int = 100
+    fat_goal: int = 70
+    carb_goal: int = 250
+    water_goal: int = 2500
+    
+    # Listy (Any dla bezpieczeństwa przed cyrkulacją, ale można użyć MealResponse)
+    meals: List[Any] = []
+    workouts: List[Any] = []
+    
+    total_calories_burned: int = 0
+    goal_achievement_date: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+# --- SEKCJA WAGI ---
+
+class WeightEntryBase(BaseModel):
+    weight: float
+    date: date
+
+class WeightEntryCreate(WeightEntryBase):
+    pass
+
+class WeightEntry(WeightEntryBase):
+    id: int
+    owner_id: int
+    class Config:
+        from_attributes = True

@@ -21,3 +21,4 @@ google-generativeai
 httpx
 python-multipart
 email-validator
+pillow
